@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#171719">
+<meta name="description" content="Карта повітряних тривог України по районах: червоний і жовтий рівні, сповіщення про вашу область.">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9A%A8%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Варта Неба — карта України</title>
+<!-- Основні теги Open Graph (для Telegram, Facebook, Viber) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Варта Неба — карта повітряних тривог України">
+<meta property="og:description" content="Інтерактивна карта тривог. Сповіщення про загрози (шахеди, ракети, балістика) по районах у реальному часі.">
+<!-- Замініть на реальне посилання на картинку, коли завантажите на сервер -->
+<meta property="og:image" content="https://vas-domen.com.ua/telegram-banner.jpg">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{--bg:#0e0f12;--glass:rgba(24,25,30,.8);--line:rgba(255,255,255,.09);--text:#f5f5f7;--muted:#9b9ba5;--accent:#ff9f1a;--red:#e84850;--yellow:#ffcb45;--green:#4caf83}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+.app{height:100%;height:100dvh;position:relative;overflow:hidden}
+#map{position:absolute;inset:0;background:#0f1014}.osm-dark{filter:invert(1) hue-rotate(180deg) brightness(.78) contrast(.85) saturate(.6)}
+.leaflet-container{font:inherit;background:#0f1014}.leaflet-control-zoom{display:none}
+.leaflet-control-attribution{font-size:9px!important;background:rgba(14,15,18,.7)!important;color:#bbb!important}.leaflet-control-attribution a{color:#ffb84d!important}
+.glass{background:var(--glass);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.hud{position:absolute;z-index:800;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:540px}
+.hud>*{pointer-events:auto}
+.bar{display:flex;align-items:center;gap:8px;padding:7px 7px 7px 10px;border-radius:20px}
+.brand{display:flex;align-items:center;gap:9px;min-width:0}
+.logo{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,#ffb338,#ff7a1a);display:grid;place-items:center;color:#fff;flex:none}
+.bt{display:flex;flex-direction:column;line-height:1.15;min-width:0}.bt strong{font-size:15px;letter-spacing:.2px}.bt span{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.status{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:7px;font-size:12px;white-space:nowrap}
+.status b{overflow:hidden;text-overflow:ellipsis;font-weight:650}
+.sdot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none;box-shadow:0 0 0 3px rgba(255,255,255,.06)}
+.ib{width:38px;height:38px;border-radius:13px;border:0;background:rgba(255,255,255,.07);color:#eee;display:grid;place-items:center;cursor:pointer;flex:none}
+.ib:active{background:rgba(255,255,255,.16)}
+.notice{border-radius:16px;padding:10px 12px;display:flex;gap:10px;align-items:center;font-size:12px}
+.notice-copy{flex:1;min-width:0;line-height:1.35}.notice-copy strong{display:block;font-size:12.5px}.notice-copy small{color:var(--accent)}
+.close{border:0;color:#bbb;background:rgba(255,255,255,.08);border-radius:50%;width:26px;height:26px;font-size:16px;cursor:pointer}
+.alertbanner{border-radius:18px;padding:12px 14px;border:1px solid;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.45)}.alertbanner b{font-size:14.5px;display:block;margin-bottom:3px}
+.chips{display:flex;gap:12px;font-size:11px;color:#d4d4da;padding-left:6px;text-shadow:0 1px 3px #000}.chips span{display:flex;align-items:center;gap:5px}.chips i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.maptools{position:absolute;z-index:800;right:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 84px);display:flex;flex-direction:column;gap:8px}
+.tool{width:42px;height:42px;border-radius:14px;color:#f1f1f3;display:grid;place-items:center;cursor:pointer;border:1px solid var(--line);background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.tool:active{background:rgba(60,60,68,.9)}
+.bottom{position:absolute;z-index:800;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));height:64px;border-radius:24px;display:flex;padding:6px;gap:4px}
+.nav{border:0;background:none;color:#a2a2ad;display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;font-family:inherit;cursor:pointer;border-radius:18px}
+.nav.active{color:var(--accent);background:rgba(255,159,26,.13)}
+.drawer{position:absolute;z-index:850;left:12px;right:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 74px);max-height:58%;overflow:auto;border-radius:24px;padding:16px;display:none;background:rgba(22,23,28,.94);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid var(--line);box-shadow:0 14px 44px rgba(0,0,0,.55);overscroll-behavior:contain}
+.drawer.show{display:block}.drawer h2{font-size:17px;margin:0 0 8px;letter-spacing:.2px}
+.item{padding:11px 0;border-top:1px solid rgba(255,255,255,.07);font-size:13px;line-height:1.4}.item:first-child{border-top:0}.item small{display:block;color:var(--muted);margin-top:3px}
+.badge{display:inline-block;font-size:10px;border-radius:6px;padding:2px 7px;margin-right:6px;color:#000;font-weight:800;letter-spacing:.3px}
+.dot{display:inline-block}
+.field{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.sel{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--muted)}
+
+/* --- Покращений дизайн селектів (меню вибору) --- */
+.field select, .field button {
+  background: rgba(255,255,255,.07);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  width: 100%;
+}
+.field select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239b9ba5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 40px;
+  cursor: pointer;
+}
+.field select option { background: #1e1f25; color: #fff; }
+.field select:disabled { opacity: .45; }
+
+/* --- Покращений дизайн галочок (чекбоксів) --- */
+.field label.chk { display: flex; gap: 10px; align-items: center; font-size: 13.5px; color: var(--text); cursor: pointer; }
+.field label.chk input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border: 1.5px solid rgba(255,255,255,.3);
+  border-radius: 5px; background-color: transparent; margin: 0; display: grid; place-content: center; transition: all 0.2s ease-in-out;
+}
+.field label.chk input[type="checkbox"]::before {
+  content: ""; width: 12px; height: 12px; transform: scale(0); transition: 120ms transform ease-in-out;
+  background-color: #fff; transform-origin: center; clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+.field label.chk input[type="checkbox"]:checked { background-color: #0a84ff; border-color: #0a84ff; }
+.field label.chk input[type="checkbox"]:checked::before { transform: scale(1); }
+
+/* --- Стилі для верхніх плажок (як на скріншоті) --- */
+.top-panels { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; pointer-events: none; }
+.top-panels > * { pointer-events: auto; }
+.promo-panel, .search-panel {
+  background: rgba(30, 31, 37, 0.95); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--line); border-radius: 20px; display: flex; align-items: center; padding: 8px 12px; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.promo-icon { width: 32px; height: 32px; background: #2a2b32; border-radius: 8px; display: grid; place-items: center; flex: none; }
+.promo-text { flex: 1; font-size: 11px; line-height: 1.3; color: var(--muted); }
+.promo-text b { display: block; font-size: 12.5px; color: #fff; margin-bottom: 2px; }
+.promo-btn { background: #0a84ff; color: #fff; border: none; border-radius: 16px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.search-panel { padding: 6px 6px 6px 14px; border-radius: 28px; }
+.search-icon { width: 18px; height: 18px; color: #888; flex: none; }
+.search-input { flex: 1; background: transparent; border: none; color: #fff; font-size: 14px; outline: none; width: 100%; }
+.search-input::placeholder { color: #888; }
+/* --- Нижні плажки (Донат, Телеграм, Магазини) --- */
+.bottom-actions {
+  position: absolute;
+  z-index: 800;
+  left: 12px;
+  right: 12px;
+  bottom: calc(max(12px,env(safe-area-inset-bottom)) + 74px); /* Позиція над нижнім меню */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.bottom-actions > * { pointer-events: auto; }
+
+.action-card {
+  border-radius: 20px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.action-card.donation { background: #f2f2f7; color: #1c1c1e; display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 8px 10px; }
+.action-card.telegram { background: #e0f0ff; color: #1c1c1e; display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 12px; }
+
+/* Компактний донат */
+.donation-left { display: flex; align-items: center; gap: 10px; }
+.donation-icon { background: #1c1c1e; color: #fff; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex: none; font-size: 14px; }
+.donation-text { font-size: 11px; line-height: 1.25; }
+.donation-text b { font-size: 12.5px; display: block; }
+.donation-right { display: flex; align-items: center; gap: 8px; }
+.donation-btn { background: #1c1c1e; color: #fff; border-radius: 14px; padding: 6px 12px; font-size: 12px; font-weight: 600; text-decoration: none; }
+.card-close { background: none; border: none; font-size: 22px; color: #8e8e93; cursor: pointer; padding: 0 4px 0 0; line-height: 1; margin-top: -2px; }
+
+.tg-left { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 13.5px; }
+.tg-icon { background: #0a84ff; color: #fff; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.tg-btn { background: #0a84ff; color: #fff; border-radius: 16px; padding: 7px 14px; font-size: 12px; font-weight: 600; text-decoration: none; }
+
+.store-buttons { display: flex; gap: 8px; }
+.store-btn { flex: 1; background: #fff; color: #1c1c1e; border-radius: 14px; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.icon-btn { background: rgba(255,255,255,0.07); border: none; border-radius: 50%; width: 40px; height: 40px; display: grid; place-items: center; color: #fff; cursor: pointer; flex: none; margin-left: 2px; }
+.icon-btn:active { background: rgba(255,255,255,0.15); }
+
+.footer-note{position:absolute;z-index:700;left:14px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 74px);color:#9b9ba5;font-size:8.5px;opacity:.7;text-shadow:0 1px 2px #000}.footer-note a{color:inherit;text-decoration:none}
+.toast{position:absolute;z-index:1000;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 150px);transform:translateX(-50%);max-width:90%;padding:10px 14px;background:rgba(32,33,39,.96);border:1px solid rgba(255,255,255,.14);border-radius:14px;font-size:12.5px;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5);text-align:center}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#1e1f25;color:#fff;border-radius:14px}.leaflet-popup-content{font-size:12px;line-height:1.45}
+.leaflet-tooltip.tip{background:rgba(20,21,25,.95);border:1px solid rgba(255,255,255,.14);color:#f3f3f4;border-radius:10px;padding:6px 9px;font-size:11.5px}.leaflet-tooltip.tip:before{display:none}
+@media(min-width:700px){.hud{left:20px;top:20px}.bottom{left:50%;right:auto;transform:translateX(-50%);width:460px;bottom:18px}.maptools{right:20px;bottom:100px}.drawer{left:20px;right:auto;width:400px;bottom:96px}.footer-note{left:20px;bottom:96px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="map" aria-label="Інтерактивна карта України"></div>
+  <div class="hud">
+    
+    <header class="bar glass">
+      <div class="brand"><div class="logo"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="M12 8v5M12 16h.01"/></svg></div><div class="bt"><strong>Варта Неба</strong><span id="updated">Очікуємо дані</span></div></div>
+      <div class="status"><span class="sdot" id="sdot"></span><b id="overall">підключення…</b></div>
+      <button class="ib" id="countryBtn" aria-label="Уся Україна"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button class="ib" id="shareBtn" aria-label="Поділитися"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button>
+    </header>
+    <div class="alertbanner" id="banner" style="display:none" role="status" aria-live="polite"></div>
+    <div class="notice glass" id="notice">
+      <div class="notice-copy"><strong>Карта повітряних тривог України</strong><small id="noticeLink">Завантаження даних і меж районів…</small></div>
+      <button class="close" id="closeNotice" aria-label="Закрити">×</button>
+    </div>
+    <div class="chips"><span><i style="background:#e84850"></i>Червоний рівень</span><span><i style="background:#ffcb45"></i>Жовтий рівень</span></div>
+  </div>
+  <div class="maptools">
+    <button class="tool" id="zoomIn" aria-label="Збільшити"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="tool" id="zoomOut" aria-label="Зменшити"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+    <button class="tool" id="locate" aria-label="Моє місце"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+    <button class="tool" id="refresh" aria-label="Оновити"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
+  </div>
+  <section class="drawer" id="drawer"><h2 id="drawerTitle">Стрічка</h2><div id="drawerBody"></div></section>
+  <div class="footer-note" id="credit"></div>
+  <nav class="bottom glass" aria-label="Основна навігація">
+    <button class="nav active" data-tab="map"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><span>Мапа</span></button>
+    <button class="nav" data-tab="feed"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Стрічка</span></button>
+    <button class="nav" data-tab="legend"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Легенда</span></button>
+    <button class="nav" data-tab="settings"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0"/></svg><span>Сповіщення</span></button>
+  </nav>
+  <div class="toast" id="toast"></div>
+    <!-- НИЖНІ ПЛАЖКИ (Донат, ТГ, Магазини) -->
+  <div class="bottom-actions">
+        <!-- Донат (Компактний) -->
+    <div class="action-card donation" id="donationCard">
+      <div class="donation-left">
+        <div class="donation-icon">❤️</div>
+        <div class="donation-text"><b>Підтримайте проєкт</b>Допоможіть з серверами</div>
+      </div>
+      <div class="donation-right">
+        <a href="https://send.monobank.ua/jar/SDWp3ABSr" target="_blank" class="donation-btn">Донат</a>
+        <button class="card-close" aria-label="Закрити" onclick="document.getElementById('donationCard').style.display='none'">×</button>
+      </div>
+    </div>
+    
+    <!-- Телеграм -->
+    <div class="action-card telegram">
+      <div class="tg-left">
+        <div class="tg-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></div>
+        Варта Неба в Telegram
+      </div>
+      <a href="https://t.me/turbopdf_news" target="_blank" class="tg-btn">Підписатися</a>
+    </div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://neptun.in.ua/sdk/neptun.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  if(typeof L==='undefined'){$('noticeLink').textContent='Не завантажився Leaflet. Відкрий файл у звичайному браузері з інтернетом';$('overall').textContent='помилка';return;}
+  const DEMO = /[?&]demo/.test(location.search);
+  const bounds = L.latLngBounds([[44.15,21.8],[52.45,40.25]]);
+  const map = L.map('map',{zoomControl:false,attributionControl:false,preferCanvas:true,minZoom:5,maxZoom:13,maxBounds:bounds,maxBoundsViscosity:.9});
+  let tiles=null;
+  function updateCredit(){const c=$('credit');if(c)c.innerHTML=(cfg.basemap?'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · ':'')+'Межі: <a href="https://data.humdata.org/dataset/cod-ab-ukr" target="_blank" rel="noopener">OCHA</a> · Дані: <a href="https://neptun.in.ua/" target="_blank" rel="noopener">NEPTUN</a>';}
+  function setBasemap(on){
+    if(on&&!tiles) tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:'osm-dark'}).addTo(map);
+    else if(!on&&tiles){map.removeLayer(tiles);tiles=null;}
+    updateCredit();
+  }
+  const home = () => map.fitBounds([[44.35,22.1],[52.25,40.15]],{padding:[8,8],maxZoom:7});
+  home();
+
+  const API = 'https://services.arcgis.com/5T5nSi527N4F7luB/ArcGIS/rest/services/UKR_admin_levels/FeatureServer/';
+  const geoUrl = (layer,fields) => `${API}${layer}/query?where=1%3D1&outFields=${fields}&outSR=4326&f=geojson&geometryPrecision=3&maxAllowableOffset=0.004`;
+
+  const COLORS = {red:{c:'#e84850',o:.62},yellow:{c:'#ffcb45',o:.48},clear:{c:'#2b3038',o:.7}};
+  const STOP = new Set(['область','обл','район','р','н','м','місто','автономна','республіка','ар','громада']);
+  const norm = s => String(s||'').toLocaleLowerCase('uk-UA').replace(/[’'`ʼ]/g,'').split(/[^а-яіїєґa-z0-9]+/).filter(w=>w&&!STOP.has(w)).join('');
+
+  let raionLayer=null, oblastLayer=null, outline=null;
+  let lastGood=0, alerts=[], threats=[], unmatched=[], lastRealtime=0, activeTab='map', toastTimer=null, myMarker=null;
+  const markers = new Map();
+
+  function levelOf(a){
+    const s = String(a.level||a.alertLevel||a.severity||a.status||a.state||a.type||a.alert_type||'').toLowerCase();
+    if(/yellow|жовт|advis|warn|possible|prelim|можлив|попередж|^p$|partial/.test(s)) return 'yellow';
+    return 'auto';
+  }
+  function scopeOf(a,hint){
+    const t = String(a.location_type||a.scope||a.kind||a.locationType||'').toLowerCase();
+    if(/raion|район/.test(t)) return 'raion';
+    if(/oblast|област/.test(t)) return 'oblast';
+    if(/city|hromada|місто|громад/.test(t)) return 'city';
+    return hint||null;
+  }
+  function normalizeAlerts(raw){
+    if(raw==null) return [];
+    const out=[];
+    const push=(it,hint)=>{
+      if(it==null) return;
+      if(typeof it==='string') it={name:it};
+      const name = it.name||it.title||it.location_title||it.location_name||it.locality||'';
+      let oblast = it.oblast||it.region||it.location_oblast||it.oblastName||it.oblast_name||'';
+      let raion = it.raion||it.district||it.rayon||it.location_raion||'';
+      let scope = scopeOf(it,hint);
+      if(!scope){
+        if(/район|р-н/i.test(name)) scope='raion';
+        else if(/област|обл\.|крим|^м\.\s*київ|^київ$|севастопол/i.test(name)) scope='oblast';
+        else scope = raion ? 'raion' : 'oblast';
+      }
+      if(scope==='raion' && !raion) raion=name;
+      if(scope==='oblast' && !oblast) oblast=name;
+      if(scope==='city' && !raion) raion=name;
+      if(!oblast && !raion) return;
+      out.push({oblast,raion,scope,level:levelOf(it),label:[oblast,raion].filter(Boolean).join(' · ')||name});
+    };
+    if(Array.isArray(raw)) raw.forEach(i=>push(i));
+    else if(typeof raw==='object'){
+      const lists=[['oblasts','oblast'],['raions','raion'],['alerts',null],['items',null],['data',null]].filter(([k])=>Array.isArray(raw[k]));
+      if(lists.length) lists.forEach(([k,h])=>raw[k].forEach(i=>push(i,h)));
+      else Object.entries(raw).forEach(([k,v])=>{ if(v && !/^(n|false|clear|0|none)$/i.test(String(v))) push({name:k,level:typeof v==='string'?v:undefined},'oblast'); });
+    }
+    return out;
+  }
+
+  function computeStates(){
+    const redObl=new Set(), yelObl=new Set(), partial=new Set();
+    const rai=[];
+    alerts.forEach(a=>{
+      const ko=norm(a.oblast);
+      if(a.scope==='oblast'){ (a.eff==='red'?redObl:yelObl).add(ko); }
+      else { rai.push({ko,kr:norm(a.raion),level:a.eff}); }
+    });
+    const used=new Set();
+    const state = props => {
+      const ko=norm(props.ADM1_UA), kr=norm(props.ADM2_UA);
+      let st='clear';
+      if(redObl.has(ko)){ st='red'; used.add('o:'+ko); }
+      else if(yelObl.has(ko)){ st='yellow'; used.add('o:'+ko); }
+      if(kr){
+        for(const r of rai){
+          if(r.kr===kr && (!r.ko||r.ko===ko)){
+            used.add('r:'+r.ko+'|'+r.kr);
+            if(r.level==='red') st='red'; else if(st==='clear') st='yellow';
+          }
+        }
+      }
+      return st;
+    };
+    return {state,used,rai,redObl,yelObl};
+  }
+  function inRing(x,y,r){let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
+  function inGeom(g,x,y){const P=g.type==='Polygon'?[g.coordinates]:g.type==='MultiPolygon'?g.coordinates:[];return P.some(p=>inRing(x,y,p[0])&&!p.slice(1).some(h=>inRing(x,y,h)));}
+
+  function styleFor(st,w){const k=COLORS[st]||COLORS.clear;return {color:w?'#fff':'#aab0b8',weight:w?3:.8,opacity:w?1:.55,fillColor:k.c,fillOpacity:k.o};}
+  const isWatched=p=>!!(cfg.raion&&norm(p.ADM2_UA)===norm(cfg.raion)&&norm(p.ADM1_UA)===norm(cfg.oblast));
+  const STATE_TXT={red:'🔴 повітряна тривога',yellow:'🟡 загроза / тривога поряд',clear:'🟢 тривоги немає'};
+
+  function repaint(){
+    classifyAlerts();
+    const layer = raionLayer||oblastLayer;
+    if(!layer) return;
+    const {state,used,rai,redObl,yelObl} = computeStates();
+    layer.eachLayer(l=>{
+      const f=l.feature; let st=state(f.properties);
+      l._st=st; l.setStyle(styleFor(st,isWatched(f.properties)));
+    });
+    unmatched = alerts.filter(a=>{
+      if(a.scope==='oblast') return !used.has('o:'+norm(a.oblast));
+      return !used.has('r:'+norm(a.oblast)+'|'+norm(a.raion)) && !used.has('r:|'+norm(a.raion));
+    });
+    updateTexts();
+  }
+
+  const getJson = async u => {const r=await fetch(u);if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();if(!j.features?.length)throw Error('no features');return j;};
+  async function loadGeo(){
+    const [rai,obl] = await Promise.allSettled([getJson(geoUrl(1,'ADM2_UA,ADM1_UA')),getJson(geoUrl(2,'ADM1_UA'))]);
+    if(rai.status==='fulfilled'){
+      RAIONS=rai.value.features.map(f=>({o:f.properties.ADM1_UA,r:f.properties.ADM2_UA}));
+      raionLayer=L.geoJSON(rai.value,{style:()=>styleFor('clear'),onEachFeature:(f,l)=>{
+        const p=f.properties;
+        l.bindTooltip(()=>`<b>${esc(p.ADM2_UA)}</b><br>${esc(p.ADM1_UA)}<br>${STATE_TXT[l._st||'clear']}`,{sticky:true,className:'tip'});
+        l.on('click',()=>toast(`${p.ADM2_UA} (${p.ADM1_UA}): ${STATE_TXT[l._st||'clear']}`));
+      }}).addTo(map);
+    }
+    if(obl.status==='fulfilled'){
+      oblastGeo=obl.value;
+      if(!raionLayer){ 
+        oblastLayer=L.geoJSON(obl.value,{style:()=>styleFor('clear'),onEachFeature:(f,l)=>{
+          l.bindTooltip(()=>`<b>${esc(f.properties.ADM1_UA)}</b><br>${STATE_TXT[l._st||'clear']}`,{sticky:true,className:'tip'});
+        }}).addTo(map);
+      }
+      outline=L.geoJSON(obl.value,{interactive:false,style:{color:'#d7dbe0',weight:1.6,opacity:.85,fill:false}}).addTo(map);
+    }
+    if(!raionLayer&&!oblastLayer){$('noticeLink').textContent='Контури недоступні, повторюємо спробу…';setTimeout(loadGeo,15000);return;}
+    const b=(raionLayer||oblastLayer).getBounds(); if(b.isValid()) map.fitBounds(b.pad(.02),{padding:[10,10],maxZoom:7});
+    if(!raionLayer) toast('Райони не завантажились, показано області');
+    repaint();
+  }
+
+  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.style.display='none',3200);}
+  const TYPES={
+    uav:{n:'БпЛА (Шахед / дрон)',c:'#ffad24',d:'M12 2L21 21L12 17L3 21Z',dir:1},
+    recon:{n:'Розвідувальний БпЛА',c:'#ffe08a',d:'M12 2L20 12L12 22L4 12Z M12 9a3 3 0 1 0 .01 0Z',dir:1},
+    missile:{n:'Крилата ракета',c:'#ff5a52',d:'M12 1C14 4 14.5 8 14.5 12L14.5 17L18 21L18 23L14 21L12 23L10 21L6 23L6 21L9.5 17L9.5 12C9.5 8 10 4 12 1Z',dir:1},
+    ballistic:{n:'Балістична ракета',c:'#c1121f',d:'M12 1C14 4 14.5 8 14.5 12L14.5 17L18 21L18 23L14 21L12 23L10 21L6 23L6 21L9.5 17L9.5 12C9.5 8 10 4 12 1Z',dir:1,ring:1},
+    kab:{n:'КАБ (керована авіабомба)',c:'#b57bff',d:'M12 3C16 3 18 7 18 12C18 17 16 20 12 20C8 20 6 17 6 12C6 7 8 3 12 3ZM9 20L9 23L15 23L15 20Z'},
+    mig31k:{n:'МіГ-31К (носій «Кинджала»)',c:'#5fb4ff',d:'M12 2L14 9L22 14L22 16L14 14L13 20L16 22L16 23L12 22L8 23L8 22L11 20L10 14L2 16L2 14L10 9Z',dir:1},
+    unknown:{n:'Невідома ціль',c:'#b5b5bd',d:'M12 4a8 8 0 1 0 .01 0Z'}
+  };
+  const meta=type=>TYPES[type]||TYPES.unknown;
+  function svgIcon(type,o={}){
+    const m=meta(type), size=o.size||30, rot=(m.dir&&Number.isFinite(+o.heading)&&o.heading!==null)?+o.heading:0;
+    const ring=o.adv?'<circle cx="12" cy="12" r="11.2" fill="none" stroke="#ffcb45" stroke-width="1.2" stroke-dasharray="2.5 2"/>':(m.ring?'<circle cx="12" cy="12" r="11.2" fill="none" stroke="#ff4d4d" stroke-width="1.2"/>':'');
+    const badge=o.count>1?`<span style="position:absolute;right:-5px;top:-5px;background:#fff;color:#000;border-radius:8px;font:700 10px/14px system-ui;min-width:14px;padding:0 3px;text-align:center">${o.count}</span>`:'';
+    return `<div style="position:relative;width:${size}px;height:${size}px;opacity:${o.stale?.5:1}"><svg viewBox="0 0 24 24" width="${size}" height="${size}" style="overflow:visible;filter:drop-shadow(0 1px 3px #000)">${ring}<g transform="rotate(${rot} 12 12)"><path d="${m.d}" fill="${m.c}" fill-opacity="${o.adv?.6:1}" fill-rule="evenodd" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></g></svg>${badge}</div>`;
+  }
+  function iconFor(t){
+    return L.divIcon({className:'',html:svgIcon(t.type,{adv:t.advisory,stale:t.status==='stale',heading:t.heading,count:+t.count}),iconSize:[30,30],iconAnchor:[15,15]});
+  }
+  function renderThreats(list){
+    const ids=new Set();
+    list.forEach(t=>{
+      if(!t||t.id==null||t.status==='resolved') return;
+      const lat=+t.lat, lon=+t.lon;
+      if(t.areaOnly||!Number.isFinite(lat)||!Number.isFinite(lon)) return;
+      ids.add(t.id);
+      const html=`<b>${esc(t.title||meta(t.type).n)}</b>${+t.count>1?` ×${+t.count}`:''}<br>${esc([t.locality,t.district,t.region].filter(Boolean).join(', ')||'Місце не уточнено')}<br><small>${esc(t.explanationShort||'')}</small>${t.advisory?'<br><small>🟡 Спостереження, а не сигнал ховатися</small>':''}${t.status==='stale'?'<br><small>⏳ Дані застарілі</small>':''}`;
+      let m=markers.get(t.id);
+      if(!m){m=L.marker([lat,lon],{icon:iconFor(t)}).addTo(map);markers.set(t.id,m);}
+      else m.setLatLng([lat,lon]).setIcon(iconFor(t));
+      m._t=t; m.bindPopup(html);
+    });
+    for(const [id,m] of markers) if(!ids.has(id)){map.removeLayer(m);markers.delete(id);}
+  }
+  setInterval(()=>{
+    if(!(window.NEPTUN&&NEPTUN.predict)) return;
+    for(const m of markers.values()){const t=m._t; if(!t||t.areaOnly||!t.velocity) continue;
+      try{const p=NEPTUN.predict(t,Date.now()); if(p&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)) m.setLatLng([p.lat,p.lon]);}catch(e){}}
+  },1000);
+
+  function updateTexts(){
+    const red=alerts.filter(a=>a.eff==='red').length, yel=alerts.length-red;
+    const n=threats.filter(t=>t.status!=='resolved').length;
+    $('overall').textContent=alerts.length?`🔴 ${red} · 🟡 ${yel}`:'тривог немає';
+    $('overall').style.color=red?'#ff6565':(yel?'#ffcb45':'#6fd6a0');
+    if(lastGood&&(raionLayer||oblastLayer)) $('notice').style.display='none';
+    $('sdot').style.background=$('overall').style.color;
+    $('updated').textContent='Оновлено '+new Date().toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});
+    updateBanner(); renderDrawer();
+  }
+  const OBLASTS=['Вінницька','Волинська','Дніпропетровська','Донецька','Житомирська','Закарпатська','Запорізька','Івано-Франківська','Київська','Кіровоградська','Луганська','Львівська','Миколаївська','Одеська','Полтавська','Рівненська','Сумська','Тернопільська','Харківська','Херсонська','Хмельницька','Черкаська','Чернівецька','Чернігівська'].map(n=>n+' область').concat(['м. Київ','АР Крим','м. Севастополь']);
+  function renderDrawer(force){
+    const b=$('drawerBody');
+    const sw=(c,t,d)=>`<div class="item" style="display:flex;gap:10px;align-items:center"><i class="dot" style="background:${c};width:22px;height:22px;border-radius:6px;flex:none"></i><div><b>${t}</b><small>${d}</small></div></div>`;
+    const ic=(type,t,d,o={})=>`<div class="item" style="display:flex;gap:10px;align-items:center"><div style="width:30px;flex:none">${svgIcon(type,o)}</div><div><b>${t}</b><small>${d}</small></div></div>`;
+    if(activeTab==='settings'){
+      if(!force) return;
+      b.innerHTML=`<div class="item"><b>Сповіщення про тривогу</b>
+      <div class="field">
+        <label class="sel">Область<select id="selObl"><option value="">— не вибрано —</option><option value="all" ${cfg.oblast==='all'?'selected':''}>Уся Україна (усі області)</option>${OBLASTS.map(o=>`<option ${cfg.oblast===o?'selected':''}>${o}</option>`).join('')}</select></label>
+        <label class="sel">Район<select id="selRai" ${(!cfg.oblast||cfg.oblast==='all'||!RAIONS.length)?'disabled':''}><option value="">Уся область</option>${raionsOf().map(r=>`<option ${cfg.raion===r?'selected':''}>${r}</option>`).join('')}</select></label>
+        <label class="chk"><input type="checkbox" id="chkNotify" ${cfg.notify?'checked':''}> Сповіщення браузера</label>
+        <label class="chk"><input type="checkbox" id="chkSound" ${cfg.sound?'checked':''}> Звук і вібрація</label>
+        <button id="btnTest">🔔 Перевірити сповіщення</button>
+      </div>
+      <div class="item"><b>Джерела</b><small>Тривоги й загрози: <a style="color:#ffbd46" href="https://neptun.in.ua/" target="_blank" rel="noopener">NEPTUN</a> · межі: UKR admin levels · карта: OpenStreetMap / CARTO</small></div>
+      <div class="item"><b>Як визначається рівень</b><small>Офіційні дані NEPTUN не містять рівня. Червоний ставиться, якщо в області є ракета, балістика, КАБ, МіГ-31К, невідома ціль або група дронів від ${BIG} штук, а також коли даних про загрози немає. Жовтий ставиться, якщо в області лише звичайні дрони. Це оцінка застосунку, а не офіційний рівень.</small></div>
+      <div class="item"><b>Безпека</b><small>Застосунок — інформаційне джерело, він не замінює офіційні сигнали повітряної тривоги.</small></div>`;
+      const changed=()=>{saveCfg();prevMap=null;repaint();updateBanner();checkNotify();renderDrawer(true);};
+      $('selObl').onchange=e=>{cfg.oblast=e.target.value;cfg.raion='';cfg.hromada='';changed();};
+      $('selRai').onchange=e=>{cfg.raion=e.target.value;cfg.hromada='';changed();focusWatch();};
+      $('selHrom').onchange=e=>{cfg.hromada=e.target.value;changed();};
+      $('chkBase').onchange=e=>{cfg.basemap=e.target.checked;saveCfg();setBasemap(cfg.basemap);};
+      $('chkSound').onchange=e=>{cfg.sound=e.target.checked;saveCfg();if(cfg.sound)beep('yellow');};
+      $('chkNotify').onchange=async e=>{
+        if(!e.target.checked){cfg.notify=false;saveCfg();return;}
+        if(!('Notification' in window)){e.target.checked=false;return toast('Цей браузер не підтримує сповіщення');}
+        let perm=Notification.permission; if(perm!=='granted') perm=await Notification.requestPermission();
+        cfg.notify=perm==='granted'; e.target.checked=cfg.notify; saveCfg();
+        if(!cfg.notify) toast('Дозвіл на сповіщення не надано. Увімкніть його в налаштуваннях сайту.');
+      };
+      $('btnTest').onclick=()=>fire('yellow','🟡 Перевірка сповіщень','Так виглядатиме сповіщення про жовтий рівень.');
+      $('btnGeo').onclick=()=>{
+        if(!navigator.geolocation||!(raionLayer||oblastGeo)) return toast('Геолокація або межі недоступні');
+        navigator.geolocation.getCurrentPosition(p=>{
+          const x=p.coords.longitude,y=p.coords.latitude; let pr=null,po=null;
+          if(raionLayer) raionLayer.eachLayer(l=>{if(!pr&&inGeom(l.feature.geometry,x,y))pr=l.feature.properties;});
+          if(pr) po=pr.ADM1_UA; else if(oblastGeo){const f=oblastGeo.features.find(f=>inGeom(f.geometry,x,y));if(f)po=f.properties.ADM1_UA;}
+          const o=po&&OBLASTS.find(o=>norm(o)===norm(po));
+          if(!o) return toast('Місце не визначено');
+          cfg.oblast=o;cfg.raion=pr?pr.ADM2_UA:'';cfg.hromada='';changed();focusWatch();toast('Обрано: '+watchName());
+        },()=>toast('Не вдалося отримати геолокацію'),{timeout:10000});
+      };
+      return;
+    }
+    if(activeTab==='legend'){
+      b.innerHTML=`<b style="font-size:13px">Кольори районів</b>`
+        +sw('#e84850','Червоний рівень','Ракетна небезпека, балістика, масований чи комбінований удар, великі групи дронів. Негайно в укриття або за дві капітальні стіни. Бізнес зупиняє роботу.')
+        +sw('#ffcb45','Жовтий рівень','Наліт звичайних дронів (типу «Шахед»). Будьте уважні, за потреби перейдіть у безпечніше місце. Магазини, ТРЦ, АЗС, заклади харчування працюють за наявності укриття. Заклади освіти без укриття не навчають. Небезпека не зникає.')
+        +sw('#2b3038','Темний','Активної тривоги за даними джерела немає. Це не гарантує безпеки.')
+        +`<b style="font-size:13px;display:block;margin-top:12px">Значки загроз</b>`
+        +ic('uav','БпЛА (Шахед / дрон)','Ударний дрон. Носик значка вказує курс.')
+        +ic('recon','Розвідувальний БпЛА','Ромб з «оком».')
+        +ic('missile','Крилата ракета','Ракета, носик за курсом.')
+        +ic('ballistic','Балістична ракета','Ракета з червоним кільцем. Найшвидша загроза.')
+        +ic('kab','КАБ','Керована авіабомба.')
+        +ic('mig31k','МіГ-31К','Літак-носій ракет «Кинджал».')
+        +ic('unknown','Невідома ціль','Тип не визначено.')
+        +`<b style="font-size:13px;display:block;margin-top:12px">Позначки на значку</b>`
+        +ic('uav','Жовте пунктирне кільце','Спостереження, а не сигнал ховатися. Район не фарбується.',{adv:true})
+        +ic('uav','Цифра в куті','Кількість цілей у групі.',{count:3})
+        +ic('uav','Напівпрозорий значок','Дані застаріли.',{stale:true});
+      return;
+    }
+    let h='';
+    if(unmatched.length) h+=`<div class="item"><b>⚠ Не зіставлено з картою: ${unmatched.length}</b><small>${unmatched.slice(0,8).map(a=>esc(a.label)).join('; ')}</small></div>`;
+    h+=alerts.length?alerts.map(a=>`<div class="item"><span class="badge" style="background:${a.eff==='red'?'#e84850':'#ffcb45'}">${a.eff==='red'?'ЧЕРВОНИЙ':'ЖОВТИЙ'}</span>${esc(a.label)}</div>`).join('')
+      :`<div class="item"><small>Активних тривог немає або дані ще не отримано. Це не гарантує безпеки.</small></div>`;
+    threats.filter(t=>t.status!=='resolved').slice(0,30).forEach(t=>{h+=`<div class="item" style="display:flex;gap:10px;align-items:center"><div>${svgIcon(t.type,{adv:t.advisory,heading:t.heading,count:+t.count,size:26})}</div><div><b>${esc(t.title||meta(t.type).n)}${t.advisory?' · спостереження':''}</b><small>${t.areaOnly?'Лише область (точне місце невідоме): ':''}${esc([t.locality,t.district,t.region].filter(Boolean).join(', ')||'Місце не уточнено')}${t.explanationShort?' · '+esc(t.explanationShort):''}</small></div></div>`;});
+    b.innerHTML=h;
+  }
+
+  const HEAVY=new Set(['missile','ballistic','kab','mig31k','unknown']), BIG=10;
+  function classifyAlerts(){
+    const cache=new Map();
+    const lvl=ko=>{
+      if(cache.has(ko)) return cache.get(ko);
+      const ts=threats.filter(t=>t.status!=='resolved'&&!t.advisory&&norm(t.region)===ko);
+      const r=(!ko||!ts.length||ts.some(t=>HEAVY.has(t.type)||(+t.count||0)>=BIG))?'red':'yellow';
+      cache.set(ko,r); return r;
+    };
+    alerts.forEach(a=>{a.eff=a.level==='yellow'?'yellow':lvl(norm(a.oblast));});
+  }
+
+  let cfg={oblast:'',raion:'',hromada:'',notify:false,sound:true,basemap:false}, prevMap=null, oblastGeo=null, actx=null;
+  try{Object.assign(cfg,JSON.parse(localStorage.getItem('etryvoga-cfg')||'{}'));}catch(e){}
+  if(cfg.notify&&!('Notification' in window&&Notification.permission==='granted')) cfg.notify=false;
+  setBasemap(!!cfg.basemap);
+  function saveCfg(){try{localStorage.setItem('etryvoga-cfg',JSON.stringify(cfg));}catch(e){}}
+  function beep(level){
+    try{
+      actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume();
+      const seq=level==='red'?[[880,.28],[660,.28],[880,.28],[660,.28]]:level==='clear'?[[523,.25],[784,.35]]:[[660,.35]];
+      let t=actx.currentTime;
+      seq.forEach(([f,d])=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=f;g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.25,t+.03);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+d+.05);t+=d;});
+    }catch(e){}
+  }
+  function fire(level,title,body){
+    toast(title+'. '+body);
+    if(cfg.sound){beep(level);try{navigator.vibrate&&navigator.vibrate(level==='red'?[400,150,400,150,400]:level==='yellow'?[250,120,250]:[150]);}catch(e){}}
+    if(cfg.notify&&'Notification' in window&&Notification.permission==='granted'){
+      try{new Notification(title,{body,tag:'etryvoga-'+level,renotify:true,requireInteraction:level==='red',silent:true});}catch(e){}
+    }
+  }
+  let RAIONS=[], HROMADAS=[], hromadaFail=false;
+  const sortU=(x,y)=>x.localeCompare(y,'uk');
+  const raionsOf=()=>[...new Set(RAIONS.filter(x=>norm(x.o)===norm(cfg.oblast)).map(x=>x.r))].sort(sortU);
+  const hromOf=()=>[...new Set(HROMADAS.filter(x=>norm(x.o)===norm(cfg.oblast)&&norm(x.r)===norm(cfg.raion)).map(x=>x.h))].sort(sortU);
+  const watchName=()=>cfg.hromada?`${cfg.hromada}, ${cfg.raion}`:cfg.raion?`${cfg.raion}, ${cfg.oblast}`:cfg.oblast;
+  function watched(){
+    const m=new Map();
+    if(!cfg.oblast) return m;
+    const all=cfg.oblast==='all', ko=norm(cfg.oblast), kr=norm(cfg.raion), kh=norm(cfg.hromada);
+    if(!all&&kr){
+      let best=null;
+      alerts.forEach(a=>{
+        const ao=norm(a.oblast), ar=norm(a.raion);
+        const hit=a.scope==='oblast'?ao===ko:((!ao||ao===ko)&&(ar===kr||(kh&&ar===kh)));
+        if(hit&&(!best||(a.eff==='red'&&best!=='red'))) best=a.eff;
+      });
+      if(best) m.set('w',{label:watchName(),lv:best});
+      return m;
+    }
+    alerts.forEach(a=>{const k=norm(a.oblast);if(!k||(!all&&k!==ko))return;const c=m.get(k);if(!c||(a.eff==='red'&&c.lv!=='red'))m.set(k,{label:a.oblast,lv:a.eff});});
+    return m;
+  }
+  async function loadHromadas(){
+    const base='https://gis.wfp.org/arcgis/rest/services/Hosted/UKR_Admin3_Hromada/FeatureServer/8/query';
+    const out=[]; let off=0;
+    try{
+      for(let i=0;i<4;i++){
+        const r=await fetch(`${base}?where=1%3D1&outFields=admin3name_ua,admin2name_ua,admin1name_ua&returnGeometry=false&resultOffset=${off}&resultRecordCount=1000&f=json`);
+        if(!r.ok) throw Error('HTTP '+r.status);
+        const j=await r.json(); if(j.error) throw Error('arcgis');
+        const fs=j.features||[];
+        fs.forEach(f=>{const a={};for(const k in f.attributes)a[k.toLowerCase()]=f.attributes[k];if(a.admin3name_ua)out.push({o:a.admin1name_ua,r:a.admin2name_ua,h:a.admin3name_ua});});
+        if(!j.exceededTransferLimit||!fs.length) break; off+=fs.length;
+      }
+      if(!out.length) throw Error('empty');
+      HROMADAS=out; hromadaFail=false;
+    }catch(e){HROMADAS=[];hromadaFail=true;}
+    if(activeTab==='settings') renderDrawer(true);
+  }
+  function focusWatch(){
+    if(!raionLayer||!cfg.raion) return;
+    raionLayer.eachLayer(l=>{if(isWatched(l.feature.properties)){try{map.fitBounds(l.getBounds().pad(.6),{maxZoom:10});}catch(e){}}});
+  }
+  function checkNotify(){
+    if(!cfg.oblast){prevMap=null;return;}
+    if(!lastGood&&!DEMO) return;
+    const cur=watched();
+    if(prevMap){
+      cur.forEach((v,k)=>{const o=prevMap.get(k);
+        if(!o) v.lv==='red'?fire('red','🔴 Червоний рівень: '+v.label,'Негайно в укриття або в місце за двома капітальними стінами.'):fire('yellow','🟡 Жовтий рівень: '+v.label,'Наліт дронів. Будьте уважні, за потреби перейдіть у безпечніше місце.');
+        else if(o.lv!==v.lv) v.lv==='red'?fire('red','🔴 Рівень підвищено до червоного: '+v.label,'Негайно в укриття.'):fire('yellow','🟡 Рівень знижено до жовтого: '+v.label,'Будьте уважні, стежте за повідомленнями.');
+      });
+      prevMap.forEach((o,k)=>{if(!cur.has(k)) fire('clear','🟢 Відбій: '+o.label,'Тривогу завершено. Слідкуйте за офіційними повідомленнями.');});
+    }
+    prevMap=cur;
+  }
+  function updateBanner(){
+    const el=$('banner'), base='Варта Неба — карта України';
+    if(!cfg.oblast||cfg.oblast==='all'){el.style.display='none';document.title=base;return;}
+    const w=watched(), v=cfg.raion?w.get('w'):w.get(norm(cfg.oblast)), name=esc(watchName());
+    if(!lastGood&&!DEMO){el.style.cssText='display:block;background:rgba(34,34,38,.92);border-color:rgba(255,255,255,.14)';el.innerHTML=`<b>${name}</b>Очікуємо дані…`;return;}
+    if(!v){el.style.cssText='display:block;background:rgba(14,48,32,.92);border-color:#4caf83';el.innerHTML=`<b>🟢 ${name}: тривоги немає</b>Це не гарантує безпеки.`;document.title=base;}
+    else if(v.lv==='red'){el.style.cssText='display:block;background:rgba(109,18,25,.94);border-color:#e84850';el.innerHTML=`<b>🔴 Червоний рівень · ${name}</b>Негайно в укриття або в місце за двома капітальними стінами. Бізнес зупиняє роботу.`;document.title='🔴 Тривога — Варта Неба';}
+    else{el.style.cssText='display:block;background:rgba(74,58,10,.94);border-color:#ffcb45';el.innerHTML=`<b>🟡 Жовтий рівень · ${name}</b>Наліт дронів. Будьте уважні, стежте за повідомленнями, за потреби перейдіть у безпечніше місце.`;document.title='🟡 Загроза — Варта Неба';}
+  }
+
+  function ingest(snap){
+    if(!snap) return;
+    lastGood=Date.now();
+    if(Array.isArray(snap.threats)){threats=snap.threats;renderThreats(threats);}
+    let raw;
+    const A=snap.alerts, rai=Array.isArray(A)?A:(A&&A.raions)||snap.alertRaions, obl=snap.alertOblasts||(A&&A.oblasts);
+    if(A!==undefined||obl!==undefined||rai!==undefined) raw={raions:rai||[],oblasts:obl||[]};
+    if(raw!==undefined){alerts=normalizeAlerts(raw);}
+    classifyAlerts(); repaint(); updateTexts(); checkNotify();
+  }
+  async function fetchFallback(){
+    const get=u=>fetch(u,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();});
+    const [t,a]=await Promise.allSettled([get('https://neptun.in.ua/api/v1/threats'),get('https://neptun.in.ua/api/v1/alerts')]);
+    const snap={};
+    if(t.status==='fulfilled') snap.threats=t.value.threats||(Array.isArray(t.value)?t.value:[]);
+    if(a.status==='fulfilled') snap.alerts=a.value;
+    if(t.status==='rejected'&&a.status==='rejected'){$('overall').textContent='немає зв’язку';$('noticeLink').textContent='Не вдалося отримати дані. Перевірте інтернет';$('notice').style.display='flex';return;}
+    ingest(snap);
+  }
+  let client=null;
+  if(DEMO){
+    ingest({threats:[
+      {id:'d1',type:'uav',title:'Шахед',region:'Харківська область',district:'Харківський район',lat:49.9,lon:36.3,heading:80,count:3,status:'active'},
+      {id:'d2',type:'ballistic',title:'Балістика',region:'Одеська область',district:'Одеський район',lat:46.4,lon:30.7,heading:200,status:'active'},
+      {id:'d3',type:'mig31k',title:'МіГ-31К',region:'Полтавська область',lat:49.6,lon:34.5,heading:120,advisory:true,status:'active'}],
+      alerts:{oblasts:[{name:'Луганська область'}],raions:[
+      {oblast:'Харківська область',name:'Харківський район'},{oblast:'Харківська область',name:'Богодухівський район'},
+      {oblast:'Одеська область',name:'Одеський район'}]}});
+    $('noticeLink').textContent='ДЕМО: тестові тривоги';
+  } else {
+    try{
+      if(window.NEPTUN&&NEPTUN.RealtimeClient){
+        client=new NEPTUN.RealtimeClient('https://neptun.in.ua');
+        client.subscribe(snap=>{lastRealtime=Date.now();ingest(snap);});
+        client.start();
+      }
+    }catch(e){console.warn('NEPTUN SDK',e);}
+    setTimeout(()=>{if(!lastRealtime)fetchFallback();},4000);
+    setInterval(()=>{if(Date.now()-lastRealtime>45000)fetchFallback();},30000);
+  }
+  loadGeo(); loadHromadas();
+
+  $('zoomIn').onclick=()=>map.zoomIn(); $('zoomOut').onclick=()=>map.zoomOut();
+  $('refresh').onclick=()=>{toast('Оновлюємо…');if(!DEMO){fetchFallback();try{client?.retry?.();}catch(e){}}};
+  $('countryBtn').onclick=home;
+  $('closeNotice').onclick=()=>$('notice').style.display='none';
+  $('locate').onclick=()=>{
+    if(!navigator.geolocation) return toast('Геолокація не підтримується');
+    navigator.geolocation.getCurrentPosition(p=>{
+      const ll=[p.coords.latitude,p.coords.longitude]; map.setView(ll,9);
+      if(myMarker) myMarker.setLatLng(ll); else myMarker=L.circleMarker(ll,{radius:7,color:'#fff',weight:2,fillColor:'#ffad24',fillOpacity:1}).addTo(map).bindPopup('Ваше місце');
+      myMarker.openPopup();
+    },()=>toast('Не вдалося отримати геолокацію'),{enableHighAccuracy:true,timeout:10000});
+  };
+  $('shareBtn').onclick=async()=>{try{if(navigator.share)await navigator.share({title:'Варта Неба',url:location.href});else{await navigator.clipboard.writeText(location.href);toast('Посилання скопійовано');}}catch(e){}};
+  document.querySelectorAll('.nav').forEach(btn=>btn.onclick=()=>{
+    activeTab=btn.dataset.tab;
+    document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b===btn));
+    if(activeTab==='map'){$('drawer').classList.remove('show');}
+    else{$('drawerTitle').textContent={feed:'Стрічка тривог',legend:'Легенда',settings:'Сповіщення'}[activeTab];$('drawer').classList.add('show');renderDrawer(true);}
+  });
+  setTimeout(()=>map.invalidateSize(),250);
+})();
+</script>
+</body>
+</html>
+
