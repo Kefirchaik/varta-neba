@@ -463,7 +463,14 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
         cfg.notify=perm==='granted'; e.target.checked=cfg.notify; saveCfg();
         if(!cfg.notify) toast('Дозвіл на сповіщення не надано. Увімкніть його в налаштуваннях сайту.');
       };
-      $('btnTest').onclick=()=>fire('yellow','🟡 Перевірка сповіщень','Так виглядатиме сповіщення про жовтий рівень.');
+      $('btnTest').onclick=async()=>{
+        if(!('Notification' in window)||!('serviceWorker' in navigator)) return toast('Цей браузер не підтримує системні сповіщення.');
+        let permission=Notification.permission;
+        if(permission==='default') permission=await Notification.requestPermission();
+        if(permission!=='granted') return toast('Сповіщення заблоковані. Дозвольте їх у налаштуваннях Chrome для цього сайту.');
+        cfg.notify=true;saveCfg();const check=$('chkNotify');if(check) check.checked=true;
+        await fire('yellow','🟡 Перевірка сповіщень','Тестове системне сповіщення «Варта Неба».');
+      };
       if($('btnGeo')) $('btnGeo').onclick=()=>{
         if(!navigator.geolocation||!(raionLayer||oblastGeo)) return toast('Геолокація або межі недоступні');
         navigator.geolocation.getCurrentPosition(p=>{
@@ -529,11 +536,16 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
       seq.forEach(([f,d])=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=f;g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.25,t+.03);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+d+.05);t+=d;});
     }catch(e){}
   }
-  function fire(level,title,body){
+  async function fire(level,title,body){
     toast(title+'. '+body);
     if(cfg.sound){beep(level);try{navigator.vibrate&&navigator.vibrate(level==='red'?[400,150,400,150,400]:level==='yellow'?[250,120,250]:[150]);}catch(e){}}
     if(cfg.notify&&'Notification' in window&&Notification.permission==='granted'){
-      try{new Notification(title,{body,tag:'etryvoga-'+level,renotify:true,requireInteraction:level==='red',silent:true});}catch(e){}
+      try{
+        if('serviceWorker' in navigator){
+          const registration=await navigator.serviceWorker.ready;
+          await registration.showNotification(title,{body,tag:'varta-neba-'+level,renotify:true,requireInteraction:level==='red',silent:true,icon:'./icon-192.png'});
+        }else if(!/Android/i.test(navigator.userAgent)) new Notification(title,{body});
+      }catch(e){console.warn('Не вдалося показати сповіщення',e);toast('Не вдалося показати системне сповіщення');}
     }
   }
   let RAIONS=[], HROMADAS=[], hromadaFail=false;
