@@ -167,6 +167,10 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#1e1f25;color:#fff;border-radius:14px}.leaflet-popup-content{font-size:12px;line-height:1.45}
 .leaflet-tooltip.tip{background:rgba(20,21,25,.95);border:1px solid rgba(255,255,255,.14);color:#f3f3f4;border-radius:10px;padding:6px 9px;font-size:11.5px}.leaflet-tooltip.tip:before{display:none}
 @media(min-width:700px){.hud{left:20px;top:20px}.bottom{left:50%;right:auto;transform:translateX(-50%);width:460px;bottom:18px}.maptools{right:20px;bottom:100px}.drawer{left:20px;right:auto;width:400px;bottom:96px}.footer-note{left:20px;bottom:96px}}
+@media(max-width:699px){.hud{left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:max(6px,env(safe-area-inset-top))}.drawer{max-height:65dvh;overflow-y:auto;overscroll-behavior:contain}}
+@media(max-height:550px){.drawer{max-height:48dvh;overflow-y:auto}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -232,7 +236,7 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
 (() => {
   const $ = id => document.getElementById(id);
   if(typeof L==='undefined'){$('noticeLink').textContent='Не завантажився Leaflet. Відкрий файл у звичайному браузері з інтернетом';$('overall').textContent='помилка';return;}
-  const DEMO = /[?&]demo/.test(location.search);
+  const DEMO = new URLSearchParams(location.search).get('demo') === '1';
   const bounds = L.latLngBounds([[44.15,21.8],[52.45,40.25]]);
   const map = L.map('map',{zoomControl:false,attributionControl:false,preferCanvas:true,minZoom:5,maxZoom:13,maxBounds:bounds,maxBoundsViscosity:.9});
   let tiles=null;
@@ -347,7 +351,7 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
     updateTexts();
   }
 
-  const getJson = async u => {const r=await fetch(u);if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();if(!j.features?.length)throw Error('no features');return j;};
+  const getJson = async u => {const r=await fetch(u,{signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();if(!j.features?.length)throw Error('no features');return j;};
   async function loadGeo(){
     const [rai,obl] = await Promise.allSettled([getJson(geoUrl(1,'ADM2_UA,ADM1_UA')),getJson(geoUrl(2,'ADM1_UA'))]);
     if(rai.status==='fulfilled'){
@@ -605,8 +609,14 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
     if(raw!==undefined){alerts=normalizeAlerts(raw);}
     classifyAlerts(); repaint(); updateTexts(); checkNotify();
   }
+  let fallbackPending=false;
   async function fetchFallback(){
-    const get=u=>fetch(u,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();});
+    if(fallbackPending || document.visibilityState==='hidden') return;
+    fallbackPending=true;
+    try { await fetchFallbackInternal(); } finally { fallbackPending=false; }
+  }
+  async function fetchFallbackInternal(){
+    const get=u=>fetch(u,{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();});
     const [t,a]=await Promise.allSettled([get('https://neptun.in.ua/api/v1/threats'),get('https://neptun.in.ua/api/v1/alerts')]);
     const snap={};
     if(t.status==='fulfilled') snap.threats=t.value.threats||(Array.isArray(t.value)?t.value:[]);
@@ -633,7 +643,8 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
       }
     }catch(e){console.warn('NEPTUN SDK',e);}
     setTimeout(()=>{if(!lastRealtime)fetchFallback();},4000);
-    setInterval(()=>{if(Date.now()-lastRealtime>45000)fetchFallback();},30000);
+    setInterval(()=>{if(Date.now()-lastRealtime>45000)fetchFallback();if(lastGood&&Date.now()-lastGood>120000)updateTexts();},30000);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-lastGood>30000){fetchFallback();map.invalidateSize();}});
   }
   loadGeo(); loadHromadas();
 
