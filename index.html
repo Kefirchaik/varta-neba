@@ -236,7 +236,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
 (() => {
   const $ = id => document.getElementById(id);
   if(typeof L==='undefined'){$('noticeLink').textContent='Не завантажився Leaflet. Відкрий файл у звичайному браузері з інтернетом';$('overall').textContent='помилка';return;}
-  const DEMO = new URLSearchParams(location.search).get('demo') === '1';
+  const DEMO = false; // Production: no query-string test alerts
   const bounds = L.latLngBounds([[44.15,21.8],[52.45,40.25]]);
   const map = L.map('map',{zoomControl:false,attributionControl:false,preferCanvas:true,minZoom:5,maxZoom:13,maxBounds:bounds,maxBoundsViscosity:.9});
   let tiles=null;
@@ -417,13 +417,14 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
     if(!(window.NEPTUN&&NEPTUN.predict)) return;
     for(const m of markers.values()){const t=m._t; if(!t||t.areaOnly||!t.velocity) continue;
       try{const p=NEPTUN.predict(t,Date.now()); if(p&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)) m.setLatLng([p.lat,p.lon]);}catch(e){}}
-  },1000);
+  },document.visibilityState==='hidden'?5000:1000);
 
   function updateTexts(){
     const red=alerts.filter(a=>a.eff==='red').length, yel=alerts.length-red;
     const n=threats.filter(t=>t.status!=='resolved').length;
-    $('overall').textContent=alerts.length?`🔴 ${red} · 🟡 ${yel}`:'тривог немає';
-    $('overall').style.color=red?'#ff6565':(yel?'#ffcb45':'#6fd6a0');
+    const stale=!lastGood || Date.now()-lastGood>120000;
+    $('overall').textContent=stale?'дані недоступні / застарілі':(alerts.length?`🔴 ${red} · 🟡 ${yel}`:'тривог немає');
+    $('overall').style.color=stale?'#ffcb45':(red?'#ff6565':(yel?'#ffcb45':'#6fd6a0'));
     if(lastGood&&(raionLayer||oblastLayer)) $('notice').style.display='none';
     $('sdot').style.background=$('overall').style.color;
     $('updated').textContent='Оновлено '+new Date().toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});
@@ -450,8 +451,8 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
       const changed=()=>{saveCfg();prevMap=null;repaint();updateBanner();checkNotify();renderDrawer(true);};
       $('selObl').onchange=e=>{cfg.oblast=e.target.value;cfg.raion='';cfg.hromada='';changed();};
       $('selRai').onchange=e=>{cfg.raion=e.target.value;cfg.hromada='';changed();focusWatch();};
-      $('selHrom').onchange=e=>{cfg.hromada=e.target.value;changed();};
-      $('chkBase').onchange=e=>{cfg.basemap=e.target.checked;saveCfg();setBasemap(cfg.basemap);};
+      if($('selHrom')) $('selHrom').onchange=e=>{cfg.hromada=e.target.value;changed();};
+      if($('chkBase')) $('chkBase').onchange=e=>{cfg.basemap=e.target.checked;saveCfg();setBasemap(cfg.basemap);};
       $('chkSound').onchange=e=>{cfg.sound=e.target.checked;saveCfg();if(cfg.sound)beep('yellow');};
       $('chkNotify').onchange=async e=>{
         if(!e.target.checked){cfg.notify=false;saveCfg();return;}
@@ -461,7 +462,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
         if(!cfg.notify) toast('Дозвіл на сповіщення не надано. Увімкніть його в налаштуваннях сайту.');
       };
       $('btnTest').onclick=()=>fire('yellow','🟡 Перевірка сповіщень','Так виглядатиме сповіщення про жовтий рівень.');
-      $('btnGeo').onclick=()=>{
+      if($('btnGeo')) $('btnGeo').onclick=()=>{
         if(!navigator.geolocation||!(raionLayer||oblastGeo)) return toast('Геолокація або межі недоступні');
         navigator.geolocation.getCurrentPosition(p=>{
           const x=p.coords.longitude,y=p.coords.latitude; let pr=null,po=null;
@@ -578,7 +579,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
   }
   function checkNotify(){
     if(!cfg.oblast){prevMap=null;return;}
-    if(!lastGood&&!DEMO) return;
+    if((!lastGood||Date.now()-lastGood>120000)&&!DEMO) return;
     const cur=watched();
     if(prevMap){
       cur.forEach((v,k)=>{const o=prevMap.get(k);
@@ -593,7 +594,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
     const el=$('banner'), base='Варта Неба — карта України';
     if(!cfg.oblast||cfg.oblast==='all'){el.style.display='none';document.title=base;return;}
     const w=watched(), v=cfg.raion?w.get('w'):w.get(norm(cfg.oblast)), name=esc(watchName());
-    if(!lastGood&&!DEMO){el.style.cssText='display:block;background:rgba(34,34,38,.92);border-color:rgba(255,255,255,.14)';el.innerHTML=`<b>${name}</b>Очікуємо дані…`;return;}
+    if((!lastGood||Date.now()-lastGood>120000)&&!DEMO){el.style.cssText='display:block;background:rgba(34,34,38,.92);border-color:rgba(255,255,255,.14)';el.innerHTML=`<b>${name}</b>Очікуємо дані…`;return;}
     if(!v){el.style.cssText='display:block;background:rgba(14,48,32,.92);border-color:#4caf83';el.innerHTML=`<b>🟢 ${name}: тривоги немає</b>Це не гарантує безпеки.`;document.title=base;}
     else if(v.lv==='red'){el.style.cssText='display:block;background:rgba(109,18,25,.94);border-color:#e84850';el.innerHTML=`<b>🔴 Червоний рівень · ${name}</b>Негайно в укриття або в місце за двома капітальними стінами. Бізнес зупиняє роботу.`;document.title='🔴 Тривога — Варта Неба';}
     else{el.style.cssText='display:block;background:rgba(74,58,10,.94);border-color:#ffcb45';el.innerHTML=`<b>🟡 Жовтий рівень · ${name}</b>Наліт дронів. Будьте уважні, стежте за повідомленнями, за потреби перейдіть у безпечніше місце.`;document.title='🟡 Загроза — Варта Неба';}
@@ -601,8 +602,14 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
 
   function ingest(snap){
     if(!snap) return;
+    if(typeof snap!=='object'||Array.isArray(snap)) return;
+    const incoming=Array.isArray(snap.threats)?snap.threats:null;
+    if(incoming && incoming.length>5000) return;
+    if(incoming){
+      threats=incoming.filter(t=>t&&typeof t==='object'&&typeof t.type==='string'&&t.type.length<40&&(!t.lat||Number.isFinite(+t.lat))&&(!t.lon||Number.isFinite(+t.lon))).slice(0,1500);
+      renderThreats(threats);
+    }
     lastGood=Date.now();
-    if(Array.isArray(snap.threats)){threats=snap.threats;renderThreats(threats);}
     let raw;
     const A=snap.alerts, rai=Array.isArray(A)?A:(A&&A.raions)||snap.alertRaions, obl=snap.alertOblasts||(A&&A.oblasts);
     if(A!==undefined||obl!==undefined||rai!==undefined) raw={raions:rai||[],oblasts:obl||[]};
@@ -621,7 +628,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
     const snap={};
     if(t.status==='fulfilled') snap.threats=t.value.threats||(Array.isArray(t.value)?t.value:[]);
     if(a.status==='fulfilled') snap.alerts=a.value;
-    if(t.status==='rejected'&&a.status==='rejected'){$('overall').textContent='немає зв’язку';$('noticeLink').textContent='Не вдалося отримати дані. Перевірте інтернет';$('notice').style.display='flex';return;}
+    if(t.status==='rejected'&&a.status==='rejected'){$('overall').textContent='дані недоступні';$('noticeLink').textContent='Не вдалося отримати дані. Перевірте інтернет';$('notice').style.display='flex';return;}
     ingest(snap);
   }
   let client=null;
