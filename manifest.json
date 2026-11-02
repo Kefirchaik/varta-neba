@@ -2,7 +2,7 @@
   "name": "Варта Неба",
   "short_name": "Варта Неба",
   "description": "Карта повітряних тривог України",
-  "start_url": "./",
+  "start_url": "./map.html",
   "display": "standalone",
   "background_color": "#0e0f12",
   "theme_color": "#0e0f12",
