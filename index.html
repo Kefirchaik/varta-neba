@@ -626,10 +626,10 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
   }
   async function fetchFallbackInternal(){
     const get=u=>fetch(u,{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();});
-    const [t,a]=await Promise.allSettled([get('https://neptun.in.ua/api/v1/threats'),get('https://neptun.in.ua/api/v1/alerts')]);
+    const [t,a]=await Promise.allSettled([get('/api/alerts?type=threats'),get('/api/alerts?type=alerts')]);
     const snap={};
-    if(t.status==='fulfilled') snap.threats=t.value.threats||(Array.isArray(t.value)?t.value:[]);
-    if(a.status==='fulfilled') snap.alerts=a.value;
+    if(t.status==='fulfilled') snap.threats=t.value.data?.threats||(Array.isArray(t.value.data)?t.value.data:[]);
+    if(a.status==='fulfilled') snap.alerts=a.value.data;
     if(t.status==='rejected'&&a.status==='rejected'){$('overall').textContent='дані недоступні';$('noticeLink').textContent='Не вдалося отримати дані. Перевірте інтернет';$('notice').style.display='flex';return;}
     ingest(snap);
   }
@@ -644,15 +644,9 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
       {oblast:'Одеська область',name:'Одеський район'}]}});
     $('noticeLink').textContent='ДЕМО: тестові тривоги';
   } else {
-    try{
-      if(window.NEPTUN&&NEPTUN.RealtimeClient){
-        client=new NEPTUN.RealtimeClient('https://neptun.in.ua');
-        client.subscribe(snap=>{lastRealtime=Date.now();ingest(snap);});
-        client.start();
-      }
-    }catch(e){console.warn('NEPTUN SDK',e);}
+    // Production alerts use the same-origin validated API proxy only.
     setTimeout(()=>{if(!lastRealtime)fetchFallback();},4000);
-    setInterval(()=>{if(Date.now()-lastRealtime>45000)fetchFallback();if(lastGood&&Date.now()-lastGood>120000)updateTexts();},30000);
+    setInterval(()=>{fetchFallback();if(lastGood&&Date.now()-lastGood>120000)updateTexts();},30000);
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-lastGood>30000){fetchFallback();map.invalidateSize();}});
   }
   loadGeo(); loadHromadas();
