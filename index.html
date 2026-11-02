@@ -173,6 +173,29 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
 button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2px}
 @media (max-width:700px) and (orientation:landscape){.hud{top:6px;left:8px;right:auto;width:min(380px,55vw);max-width:none;gap:4px}.bar{padding:5px 6px;border-radius:14px}.logo{width:27px;height:27px}.bt strong{font-size:12px}.bt span{font-size:9px}.status{font-size:10px;gap:3px}.ib{width:30px;height:30px;border-radius:9px}.ib .i{width:17px;height:17px}.alertbanner{padding:7px 9px;font-size:11px;line-height:1.25;max-height:30vh;overflow:auto}.alertbanner b{font-size:11px}.chips{font-size:9px}.bottom{left:auto;right:8px;bottom:max(6px,env(safe-area-inset-bottom));width:min(350px,48vw);height:48px;border-radius:17px;padding:3px}.nav{font-size:9px;gap:0}.nav .i{width:17px;height:17px}.bottom-actions{left:8px;right:auto;width:min(380px,55vw);bottom:max(6px,env(safe-area-inset-bottom));gap:4px}.action-card.telegram,.action-card.donation{padding:5px 8px;border-radius:12px}.drawer{left:auto;right:8px;width:min(360px,48vw);bottom:62px;max-height:65vh}.maptools{right:8px;bottom:64px}.tool{width:34px;height:34px}}
 @media(max-width:380px){.brand{gap:5px}.status{gap:3px;font-size:10px}.bar{gap:4px}.ib{width:34px;height:34px}.bt strong{font-size:13px}.logo{width:29px;height:29px}}
+/* Release compact UI: retain essential map controls and notifications. */
+@media(max-width:800px){
+ .hud{gap:5px}
+ .bar{padding:6px 7px;border-radius:16px}
+ .alertbanner{padding:8px 10px;border-radius:13px;font-size:11.5px;line-height:1.32;box-shadow:0 4px 12px rgba(0,0,0,.22)}
+ .alertbanner b{font-size:12px;line-height:1.25;margin-bottom:2px}
+ .chips{font-size:10px;gap:9px}
+ .bottom-actions{gap:5px}
+ .action-card.telegram,.action-card.donation{padding:7px 9px;border-radius:15px}
+ .maptools{gap:6px}
+ .tool{width:38px;height:38px;border-radius:12px}
+}
+@media(max-width:800px) and (orientation:portrait){
+ .hud{left:8px;right:8px;max-width:none}
+ .bottom{left:8px;right:8px}
+ .bottom-actions{left:8px;right:8px}
+ .alertbanner{max-height:112px;overflow:auto}
+ .maptools{right:8px}
+}
+@media(max-width:800px) and (orientation:landscape){
+ .alertbanner{max-height:72px;overflow:auto}
+ .bottom-actions .action-card.donation{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -197,7 +220,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
     <button class="tool" id="zoomIn" aria-label="Збільшити"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
     <button class="tool" id="zoomOut" aria-label="Зменшити"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
     <button class="tool" id="locate" aria-label="Моє місце"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
-    <button class="tool" id="refresh" aria-label="Оновити"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
+    <button class="tool" id="refresh" style="display:none" aria-label="Оновити"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
   </div>
   <section class="drawer" id="drawer"><h2 id="drawerTitle">Стрічка</h2><div id="drawerBody"></div></section>
   <div class="footer-note" id="credit"></div>
@@ -652,7 +675,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2p
   loadGeo(); loadHromadas();
 
   $('zoomIn').onclick=()=>map.zoomIn(); $('zoomOut').onclick=()=>map.zoomOut();
-  $('refresh').onclick=()=>{toast('Оновлюємо…');if(!DEMO){fetchFallback();try{client?.retry?.();}catch(e){}}};
+  if($('refresh')) $('refresh').onclick=()=>{toast('Оновлюємо…');if(!DEMO){fetchFallback();try{client?.retry?.();}catch(e){}}};
   $('countryBtn').onclick=home;
   $('closeNotice').onclick=()=>$('notice').style.display='none';
   $('locate').onclick=()=>{
