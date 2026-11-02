@@ -37,7 +37,7 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
 .leaflet-control-attribution{font-size:9px!important;background:rgba(14,15,18,.7)!important;color:#bbb!important}.leaflet-control-attribution a{color:#ffb84d!important}
 .glass{background:var(--glass);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.35)}
 .i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
-.hud{position:absolute;z-index:800;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:540px}
+.hud{position:absolute;z-index:800;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:min(540px,calc(100% - 24px))}
 .hud>*{pointer-events:auto}
 .bar{display:flex;align-items:center;gap:8px;padding:7px 7px 7px 10px;border-radius:20px}
 .brand{display:flex;align-items:center;gap:9px;min-width:0}
@@ -167,6 +167,12 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#1e1f25;color:#fff;border-radius:14px}.leaflet-popup-content{font-size:12px;line-height:1.45}
 .leaflet-tooltip.tip{background:rgba(20,21,25,.95);border:1px solid rgba(255,255,255,.14);color:#f3f3f4;border-radius:10px;padding:6px 9px;font-size:11.5px}.leaflet-tooltip.tip:before{display:none}
 @media(min-width:700px){.hud{left:20px;top:20px}.bottom{left:50%;right:auto;transform:translateX(-50%);width:460px;bottom:18px}.maptools{right:20px;bottom:100px}.drawer{left:20px;right:auto;width:400px;bottom:96px}.footer-note{left:20px;bottom:96px}}
+@media(max-width:699px){.hud{left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:max(6px,env(safe-area-inset-top))}.drawer{max-height:65dvh;overflow-y:auto;overscroll-behavior:contain}}
+@media(max-height:550px){.drawer{max-height:48dvh;overflow-y:auto}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+button:focus-visible,a:focus-visible{outline:2px solid #ffcb45;outline-offset:2px}
+@media (max-width:700px) and (orientation:landscape){.hud{top:6px;left:8px;right:auto;width:min(380px,55vw);max-width:none;gap:4px}.bar{padding:5px 6px;border-radius:14px}.logo{width:27px;height:27px}.bt strong{font-size:12px}.bt span{font-size:9px}.status{font-size:10px;gap:3px}.ib{width:30px;height:30px;border-radius:9px}.ib .i{width:17px;height:17px}.alertbanner{padding:7px 9px;font-size:11px;line-height:1.25;max-height:30vh;overflow:auto}.alertbanner b{font-size:11px}.chips{font-size:9px}.bottom{left:auto;right:8px;bottom:max(6px,env(safe-area-inset-bottom));width:min(350px,48vw);height:48px;border-radius:17px;padding:3px}.nav{font-size:9px;gap:0}.nav .i{width:17px;height:17px}.bottom-actions{left:8px;right:auto;width:min(380px,55vw);bottom:max(6px,env(safe-area-inset-bottom));gap:4px}.action-card.telegram,.action-card.donation{padding:5px 8px;border-radius:12px}.drawer{left:auto;right:8px;width:min(360px,48vw);bottom:62px;max-height:65vh}.maptools{right:8px;bottom:64px}.tool{width:34px;height:34px}}
+@media(max-width:380px){.brand{gap:5px}.status{gap:3px;font-size:10px}.bar{gap:4px}.ib{width:34px;height:34px}.bt strong{font-size:13px}.logo{width:29px;height:29px}}
 </style>
 </head>
 <body>
@@ -232,7 +238,7 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
 (() => {
   const $ = id => document.getElementById(id);
   if(typeof L==='undefined'){$('noticeLink').textContent='Не завантажився Leaflet. Відкрий файл у звичайному браузері з інтернетом';$('overall').textContent='помилка';return;}
-  const DEMO = /[?&]demo/.test(location.search);
+  const DEMO = false; // Production: no query-string test alerts
   const bounds = L.latLngBounds([[44.15,21.8],[52.45,40.25]]);
   const map = L.map('map',{zoomControl:false,attributionControl:false,preferCanvas:true,minZoom:5,maxZoom:13,maxBounds:bounds,maxBoundsViscosity:.9});
   let tiles=null;
@@ -347,7 +353,7 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
     updateTexts();
   }
 
-  const getJson = async u => {const r=await fetch(u);if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();if(!j.features?.length)throw Error('no features');return j;};
+  const getJson = async u => {const r=await fetch(u,{signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();if(!j.features?.length)throw Error('no features');return j;};
   async function loadGeo(){
     const [rai,obl] = await Promise.allSettled([getJson(geoUrl(1,'ADM2_UA,ADM1_UA')),getJson(geoUrl(2,'ADM1_UA'))]);
     if(rai.status==='fulfilled'){
@@ -413,13 +419,14 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
     if(!(window.NEPTUN&&NEPTUN.predict)) return;
     for(const m of markers.values()){const t=m._t; if(!t||t.areaOnly||!t.velocity) continue;
       try{const p=NEPTUN.predict(t,Date.now()); if(p&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)) m.setLatLng([p.lat,p.lon]);}catch(e){}}
-  },1000);
+  },document.visibilityState==='hidden'?5000:1000);
 
   function updateTexts(){
     const red=alerts.filter(a=>a.eff==='red').length, yel=alerts.length-red;
     const n=threats.filter(t=>t.status!=='resolved').length;
-    $('overall').textContent=alerts.length?`🔴 ${red} · 🟡 ${yel}`:'тривог немає';
-    $('overall').style.color=red?'#ff6565':(yel?'#ffcb45':'#6fd6a0');
+    const stale=!lastGood || Date.now()-lastGood>120000;
+    $('overall').textContent=stale?'дані недоступні / застарілі':(alerts.length?`🔴 ${red} · 🟡 ${yel}`:'тривог немає');
+    $('overall').style.color=stale?'#ffcb45':(red?'#ff6565':(yel?'#ffcb45':'#6fd6a0'));
     if(lastGood&&(raionLayer||oblastLayer)) $('notice').style.display='none';
     $('sdot').style.background=$('overall').style.color;
     $('updated').textContent='Оновлено '+new Date().toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});
@@ -446,8 +453,8 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
       const changed=()=>{saveCfg();prevMap=null;repaint();updateBanner();checkNotify();renderDrawer(true);};
       $('selObl').onchange=e=>{cfg.oblast=e.target.value;cfg.raion='';cfg.hromada='';changed();};
       $('selRai').onchange=e=>{cfg.raion=e.target.value;cfg.hromada='';changed();focusWatch();};
-      $('selHrom').onchange=e=>{cfg.hromada=e.target.value;changed();};
-      $('chkBase').onchange=e=>{cfg.basemap=e.target.checked;saveCfg();setBasemap(cfg.basemap);};
+      if($('selHrom')) $('selHrom').onchange=e=>{cfg.hromada=e.target.value;changed();};
+      if($('chkBase')) $('chkBase').onchange=e=>{cfg.basemap=e.target.checked;saveCfg();setBasemap(cfg.basemap);};
       $('chkSound').onchange=e=>{cfg.sound=e.target.checked;saveCfg();if(cfg.sound)beep('yellow');};
       $('chkNotify').onchange=async e=>{
         if(!e.target.checked){cfg.notify=false;saveCfg();return;}
@@ -457,7 +464,7 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
         if(!cfg.notify) toast('Дозвіл на сповіщення не надано. Увімкніть його в налаштуваннях сайту.');
       };
       $('btnTest').onclick=()=>fire('yellow','🟡 Перевірка сповіщень','Так виглядатиме сповіщення про жовтий рівень.');
-      $('btnGeo').onclick=()=>{
+      if($('btnGeo')) $('btnGeo').onclick=()=>{
         if(!navigator.geolocation||!(raionLayer||oblastGeo)) return toast('Геолокація або межі недоступні');
         navigator.geolocation.getCurrentPosition(p=>{
           const x=p.coords.longitude,y=p.coords.latitude; let pr=null,po=null;
@@ -574,7 +581,7 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
   }
   function checkNotify(){
     if(!cfg.oblast){prevMap=null;return;}
-    if(!lastGood&&!DEMO) return;
+    if((!lastGood||Date.now()-lastGood>120000)&&!DEMO) return;
     const cur=watched();
     if(prevMap){
       cur.forEach((v,k)=>{const o=prevMap.get(k);
@@ -589,7 +596,7 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
     const el=$('banner'), base='Варта Неба — карта України';
     if(!cfg.oblast||cfg.oblast==='all'){el.style.display='none';document.title=base;return;}
     const w=watched(), v=cfg.raion?w.get('w'):w.get(norm(cfg.oblast)), name=esc(watchName());
-    if(!lastGood&&!DEMO){el.style.cssText='display:block;background:rgba(34,34,38,.92);border-color:rgba(255,255,255,.14)';el.innerHTML=`<b>${name}</b>Очікуємо дані…`;return;}
+    if((!lastGood||Date.now()-lastGood>120000)&&!DEMO){el.style.cssText='display:block;background:rgba(34,34,38,.92);border-color:rgba(255,255,255,.14)';el.innerHTML=`<b>${name}</b>Очікуємо дані…`;return;}
     if(!v){el.style.cssText='display:block;background:rgba(14,48,32,.92);border-color:#4caf83';el.innerHTML=`<b>🟢 ${name}: тривоги немає</b>Це не гарантує безпеки.`;document.title=base;}
     else if(v.lv==='red'){el.style.cssText='display:block;background:rgba(109,18,25,.94);border-color:#e84850';el.innerHTML=`<b>🔴 Червоний рівень · ${name}</b>Негайно в укриття або в місце за двома капітальними стінами. Бізнес зупиняє роботу.`;document.title='🔴 Тривога — Варта Неба';}
     else{el.style.cssText='display:block;background:rgba(74,58,10,.94);border-color:#ffcb45';el.innerHTML=`<b>🟡 Жовтий рівень · ${name}</b>Наліт дронів. Будьте уважні, стежте за повідомленнями, за потреби перейдіть у безпечніше місце.`;document.title='🟡 Загроза — Варта Неба';}
@@ -597,21 +604,33 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
 
   function ingest(snap){
     if(!snap) return;
+    if(typeof snap!=='object'||Array.isArray(snap)) return;
+    const incoming=Array.isArray(snap.threats)?snap.threats:null;
+    if(incoming && incoming.length>5000) return;
+    if(incoming){
+      threats=incoming.filter(t=>t&&typeof t==='object'&&typeof t.type==='string'&&t.type.length<40&&(!t.lat||Number.isFinite(+t.lat))&&(!t.lon||Number.isFinite(+t.lon))).slice(0,1500);
+      renderThreats(threats);
+    }
     lastGood=Date.now();
-    if(Array.isArray(snap.threats)){threats=snap.threats;renderThreats(threats);}
     let raw;
     const A=snap.alerts, rai=Array.isArray(A)?A:(A&&A.raions)||snap.alertRaions, obl=snap.alertOblasts||(A&&A.oblasts);
     if(A!==undefined||obl!==undefined||rai!==undefined) raw={raions:rai||[],oblasts:obl||[]};
     if(raw!==undefined){alerts=normalizeAlerts(raw);}
     classifyAlerts(); repaint(); updateTexts(); checkNotify();
   }
+  let fallbackPending=false;
   async function fetchFallback(){
-    const get=u=>fetch(u,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();});
-    const [t,a]=await Promise.allSettled([get('https://neptun.in.ua/api/v1/threats'),get('https://neptun.in.ua/api/v1/alerts')]);
+    if(fallbackPending || document.visibilityState==='hidden') return;
+    fallbackPending=true;
+    try { await fetchFallbackInternal(); } finally { fallbackPending=false; }
+  }
+  async function fetchFallbackInternal(){
+    const get=u=>fetch(u,{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();});
+    const [t,a]=await Promise.allSettled([get('/api/alerts?type=threats'),get('/api/alerts?type=alerts')]);
     const snap={};
-    if(t.status==='fulfilled') snap.threats=t.value.threats||(Array.isArray(t.value)?t.value:[]);
-    if(a.status==='fulfilled') snap.alerts=a.value;
-    if(t.status==='rejected'&&a.status==='rejected'){$('overall').textContent='немає зв’язку';$('noticeLink').textContent='Не вдалося отримати дані. Перевірте інтернет';$('notice').style.display='flex';return;}
+    if(t.status==='fulfilled') snap.threats=t.value.data?.threats||(Array.isArray(t.value.data)?t.value.data:[]);
+    if(a.status==='fulfilled') snap.alerts=a.value.data;
+    if(t.status==='rejected'&&a.status==='rejected'){$('overall').textContent='дані недоступні';$('noticeLink').textContent='Не вдалося отримати дані. Перевірте інтернет';$('notice').style.display='flex';return;}
     ingest(snap);
   }
   let client=null;
@@ -625,15 +644,10 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe 
       {oblast:'Одеська область',name:'Одеський район'}]}});
     $('noticeLink').textContent='ДЕМО: тестові тривоги';
   } else {
-    try{
-      if(window.NEPTUN&&NEPTUN.RealtimeClient){
-        client=new NEPTUN.RealtimeClient('https://neptun.in.ua');
-        client.subscribe(snap=>{lastRealtime=Date.now();ingest(snap);});
-        client.start();
-      }
-    }catch(e){console.warn('NEPTUN SDK',e);}
+    // Production alerts use the same-origin validated API proxy only.
     setTimeout(()=>{if(!lastRealtime)fetchFallback();},4000);
-    setInterval(()=>{if(Date.now()-lastRealtime>45000)fetchFallback();},30000);
+    setInterval(()=>{fetchFallback();if(lastGood&&Date.now()-lastGood>120000)updateTexts();},30000);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-lastGood>30000){fetchFallback();map.invalidateSize();}});
   }
   loadGeo(); loadHromadas();
 
